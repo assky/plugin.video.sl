@@ -31,6 +31,10 @@ msgctxt "#30106"
 msgid "Password"
 msgstr "Password"
 
+msgctxt "#30107"
+msgid "When no device is available use last one"
+msgstr "When no device is available use last one"
+
 msgctxt "#30200"
 msgid "Playlist"
 msgstr "Playlist"

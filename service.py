@@ -28,11 +28,19 @@ class SkylinkMonitor(xbmc.Monitor):
     def update_accounts(self):
         logger.log.info('Updating accounts...')
 
+        self._accounts = []
+
         account_sk = account.Account('sk', self._addon.getSetting('username_sk'), self._addon.getSetting('password_sk'), 'skylink.sk')
         account_cz = account.Account('cz', self._addon.getSetting('username_cz'), self._addon.getSetting('password_cz'), 'skylink.cz')
 
-        self._accounts.append(account_sk)
-        self._accounts.append(account_cz)
+        if account_sk.is_valid():
+            self._accounts.append(account_sk)
+
+        if account_cz.is_valid():
+            self._accounts.append(account_cz)
+
+        if len(self._accounts) == 0:
+            raise skylink.UserNotDefinedException
 
     def make_unique_list(self, channels):
         logger.log.info('Filtering channels to create unique list...')
@@ -50,12 +58,22 @@ class SkylinkMonitor(xbmc.Monitor):
         icon = u'DefaultIconError.png' if error else ''
         xbmc.executebuiltin(u'Notification("%s","%s",5000, %s)' % (self._addon.getAddonInfo('name'), text, icon))
 
-    def select_device(self, d):
+    def get_last_used_device(self, devices):
+        la = 9999999999999
+        device = ''
+        for d in devices:
+            if d['lastactivity'] < la:
+                device = d['id']
+                la = d['lastactivity']
+        return device
+
+    def select_device(self, devices):
         dialog = xbmcgui.Dialog()
         items = []
-        for device in d:
+        for device in devices:
             items.append(device['name'].replace("+", " "))
-        return dialog.select(self._addon.getLocalizedString(30403), items)
+        d = dialog.select(self._addon.getLocalizedString(30403), items)
+        return devices[d]['id'] if d > -1 else ''
 
     def onSettingsChanged(self):
         self.update_accounts()
@@ -86,14 +104,15 @@ class SkylinkMonitor(xbmc.Monitor):
             try:
                 channels = channels + sl.channels()
             except skylink.TooManyDevicesException as e:
-                if try_reconnect:
-                    d = self.select_device(e.devices)
-                    if d > -1:
-                        logger.log.info('reconnecting as: ' + e.devices[d]['id'])
-                        sl.reconnect(e.devices[d]['id'])
-                        channels = channels + sl.channels()
-                    else:
-                        raise
+                if self._addon.getSetting('reuse_last_device') == 'true':
+                    device = self.get_last_used_device(e.devices)
+                else:
+                    device = self.select_device(e.devices) if try_reconnect else ''
+
+                if device != '':
+                    logger.log.info('reconnecting as: ' + device)
+                    sl.reconnect(device)
+                    channels = channels + sl.channels()
                 else:
                     raise
 

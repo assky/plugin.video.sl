@@ -21,7 +21,18 @@ def select_device(devices):
     items = []
     for device in devices:
         items.append(device['name'].replace("+", " "))
-    return dialog.select(_addon.getLocalizedString(30403), items)
+    d = dialog.select(_addon.getLocalizedString(30403), items)
+    return devices[d]['id'] if d > -1 else ''
+
+
+def get_last_used_device(devices):
+    la = 9999999999999
+    device = ''
+    for d in devices:
+        if d['lastactivity'] < la:
+            device = d['id']
+            la = d['lastactivity']
+    return device
 
 def get_account(id):
     if id == 'sk':
@@ -36,7 +47,7 @@ def play(account_id, channel_id):
     account = get_account(account_id)
 
     if not account.is_valid():
-        exit(1)
+        raise UserNotDefinedException
 
     logger.log.info('Play channel %s from %s' % (channel_id, account.provider))
     sl = skylink.Skylink(account, _profile)
@@ -45,11 +56,16 @@ def play(account_id, channel_id):
     try:
         info = sl.channel_info(channel_id)
     except skylink.TooManyDevicesException as e:
-        d = select_device(e.devices)
-        if d > -1:
-            logger.log.info('reconnecting as: ' + e.devices[d]['id'])
-            sl.reconnect(e.devices[d]['id'])
+        if _addon.getSetting('reuse_last_device') == 'true':
+            device = get_last_used_device(e.devices)
+        else:
+            device = select_device(e.devices)
+
+        if device != '':
+            logger.log.info('reconnecting as: ' + device)
+            sl.reconnect(device)
             info = sl.channel_info(channel_id)
+
     except requests.exceptions.ConnectionError:
         dialog = xbmcgui.Dialog()
         dialog.ok(_addon.getAddonInfo('name'), _addon.getLocalizedString(30506))

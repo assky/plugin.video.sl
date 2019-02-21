@@ -31,6 +31,10 @@ msgctxt "#30106"
 msgid "Password"
 msgstr "Heslo"
 
+msgctxt "#30107"
+msgid "When no device is available use last one"
+msgstr "Ak žiadne zariadenie nie je dostupé, zober naposledy použité"
+
 msgctxt "#30200"
 msgid "Playlist"
 msgstr "Playlist"
